@@ -1,8 +1,12 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { MapData } from './Editor';
+import { DQNAgent, GameState, Action, TrainingStats } from '../ai/agent';
 
 interface GameProps {
   mapData: MapData;
+  mode: 'manual' | 'ai';
+  isTraining: boolean;
+  onTrainingStats: (stats: TrainingStats) => void;
 }
 
 interface Car {
@@ -29,9 +33,14 @@ const ROAD = 1;
 const START = 2;
 const FINISH = 3;
 
-const Game: React.FC<GameProps> = ({ mapData }) => {
+const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, onTrainingStats }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number>(0);
+  const agentRef = useRef<DQNAgent | null>(null);
+  const prevStateRef = useRef<GameState | null>(null);
+  const episodeRewardRef = useRef<number>(0);
+  const episodeStepsRef = useRef<number>(0);
+  const episodeCountRef = useRef<number>(0);
   
   const [car, setCar] = useState<Car>({
     x: 0,
@@ -49,6 +58,18 @@ const Game: React.FC<GameProps> = ({ mapData }) => {
     left: false,
     right: false
   });
+  
+  const [currentAction, setCurrentAction] = useState<Action>(Action.NO_ACTION);
+  const [currentEpisode, setCurrentEpisode] = useState(0);
+  const [currentReward, setCurrentReward] = useState(0);
+
+  // Initialize AI agent
+  useEffect(() => {
+    if (mode === 'ai' && !agentRef.current) {
+      agentRef.current = new DQNAgent();
+      agentRef.current.load();
+    }
+  }, [mode]);
 
   // Initialize car position at start
   useEffect(() => {
@@ -61,8 +82,10 @@ const Game: React.FC<GameProps> = ({ mapData }) => {
         angle: 0
       }));
       setGameState('playing');
+      episodeRewardRef.current = 0;
+      episodeStepsRef.current = 0;
     }
-  }, [mapData.start]);
+  }, [mapData.start, currentEpisode]);
 
   // Handle keyboard input
   useEffect(() => {
@@ -136,10 +159,56 @@ const Game: React.FC<GameProps> = ({ mapData }) => {
     return gridX === mapData.finish.x && gridY === mapData.finish.y;
   }, [mapData.finish]);
 
+  const getGameState = useCallback((car: Car): GameState => {
+    const distanceToFinish = mapData.finish ? 
+      Math.sqrt(
+        Math.pow(car.x - (mapData.finish.x * CELL_SIZE + CELL_SIZE/2), 2) +
+        Math.pow(car.y - (mapData.finish.y * CELL_SIZE + CELL_SIZE/2), 2)
+      ) : 1000;
+
+    return {
+      carX: car.x,
+      carY: car.y,
+      carAngle: car.angle,
+      finishX: mapData.finish?.x || 0,
+      finishY: mapData.finish?.y || 0,
+      distanceToFinish,
+      crashed: gameState === 'crashed',
+      finished: gameState === 'finished'
+    };
+  }, [car, mapData.finish, gameState]);
+
+  const applyAction = useCallback((action: Action) => {
+    switch (action) {
+      case Action.ACCELERATE:
+        setKeys(prev => ({ ...prev, up: true, down: false }));
+        break;
+      case Action.BRAKE:
+        setKeys(prev => ({ ...prev, down: true, up: false }));
+        break;
+      case Action.TURN_LEFT:
+        setKeys(prev => ({ ...prev, left: true, right: false }));
+        break;
+      case Action.TURN_RIGHT:
+        setKeys(prev => ({ ...prev, right: true, left: false }));
+        break;
+      case Action.NO_ACTION:
+        setKeys({ up: false, down: false, left: false, right: false });
+        break;
+    }
+  }, []);
+
   const updateCar = useCallback(() => {
     if (gameState !== 'playing') return;
 
     setCar(prevCar => {
+      // AI decision making
+      if (mode === 'ai' && agentRef.current) {
+        const currentState = getGameState(prevCar);
+        const action = agentRef.current.selectAction(currentState);
+        setCurrentAction(action);
+        applyAction(action);
+      }
       let newSpeed = prevCar.speed;
       let newAngle = prevCar.angle;
 
@@ -185,24 +254,100 @@ const Game: React.FC<GameProps> = ({ mapData }) => {
 
       if (hasCollision) {
         setGameState('crashed');
+        
+        // Handle AI training
+        if (mode === 'ai' && agentRef.current && isTraining) {
+          const newState = getGameState({ ...prevCar, x: newX, y: newY });
+          newState.crashed = true;
+          
+          if (prevStateRef.current) {
+            const reward = agentRef.current.calculateReward(prevStateRef.current, newState, currentAction);
+            agentRef.current.remember(prevStateRef.current, currentAction, reward, newState, true);
+            episodeRewardRef.current += reward;
+            // Only trigger replay on episode end, not every step
+            agentRef.current.replay();
+          }
+          
+          // Reset for next episode
+          setTimeout(() => {
+            episodeCountRef.current++;
+            setCurrentEpisode(episodeCountRef.current);
+            onTrainingStats({
+              episode: episodeCountRef.current,
+              totalReward: episodeRewardRef.current,
+              episodeLength: episodeStepsRef.current,
+              averageReward: episodeRewardRef.current / Math.max(episodeStepsRef.current, 1)
+            });
+          }, 100);
+        }
+        
         return { ...prevCar, speed: 0 };
       }
 
       // Check if reached finish
       if (checkFinish(newX, newY)) {
         setGameState('finished');
+        
+        // Handle AI training
+        if (mode === 'ai' && agentRef.current && isTraining) {
+          const newState = getGameState({ ...prevCar, x: newX, y: newY });
+          newState.finished = true;
+          
+          if (prevStateRef.current) {
+            const reward = agentRef.current.calculateReward(prevStateRef.current, newState, currentAction);
+            agentRef.current.remember(prevStateRef.current, currentAction, reward, newState, true);
+            agentRef.current.replay();
+            episodeRewardRef.current += reward;
+          }
+          
+          // Reset for next episode
+          setTimeout(() => {
+            episodeCountRef.current++;
+            setCurrentEpisode(episodeCountRef.current);
+            onTrainingStats({
+              episode: episodeCountRef.current,
+              totalReward: episodeRewardRef.current,
+              episodeLength: episodeStepsRef.current,
+              averageReward: episodeRewardRef.current / Math.max(episodeStepsRef.current, 1)
+            });
+            agentRef.current?.save();
+          }, 100);
+        }
+        
         return { ...prevCar, x: newX, y: newY, speed: 0 };
       }
 
-      return {
+      const newState = {
         ...prevCar,
         x: newX,
         y: newY,
         angle: newAngle,
         speed: newSpeed
       };
+      
+      // Handle continuous AI training
+      if (mode === 'ai' && agentRef.current && isTraining) {
+        const currentState = getGameState(newState);
+        
+        if (prevStateRef.current) {
+          const reward = agentRef.current.calculateReward(prevStateRef.current, currentState, currentAction);
+          agentRef.current.remember(prevStateRef.current, currentAction, reward, currentState, false);
+          episodeRewardRef.current += reward;
+          setCurrentReward(episodeRewardRef.current);
+          
+          // Only replay occasionally during continuous play (every 10 steps)
+          if (episodeStepsRef.current % 10 === 0) {
+            agentRef.current.replay();
+          }
+        }
+        
+        prevStateRef.current = currentState;
+        episodeStepsRef.current++;
+      }
+      
+      return newState;
     });
-  }, [keys, gameState, checkCollision, checkFinish]);
+  }, [keys, gameState, checkCollision, checkFinish, mode, isTraining, currentAction, getGameState, applyAction]);
 
   const drawGame = useCallback((ctx: CanvasRenderingContext2D) => {
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -261,7 +406,13 @@ const Game: React.FC<GameProps> = ({ mapData }) => {
     ctx.rotate(car.angle);
 
     // Car body (triangle pointing forward)
-    ctx.fillStyle = gameState === 'crashed' ? '#ef4444' : '#3b82f6';
+    let carColor = '#3b82f6'; // Default blue
+    if (gameState === 'crashed') {
+      carColor = '#ef4444'; // Red for crashed
+    } else if (mode === 'ai') {
+      carColor = '#10b981'; // Green for AI
+    }
+    ctx.fillStyle = carColor;
     ctx.beginPath();
     ctx.moveTo(CAR_SIZE/2, 0); // Front point
     ctx.lineTo(-CAR_SIZE/2, -CAR_SIZE/3); // Back left
@@ -332,8 +483,10 @@ const Game: React.FC<GameProps> = ({ mapData }) => {
           </div>
         )}
         {gameState === 'playing' && mapData.start && (
-          <div className="text-blue-600 text-lg font-medium mb-2">
-            🏎️ Racing...
+          <div className={`text-lg font-medium mb-2 ${
+            mode === 'ai' ? 'text-green-600' : 'text-blue-600'
+          }`}>
+            {mode === 'ai' ? '🤖 AI Racing...' : '🏎️ Racing...'}
           </div>
         )}
         {!mapData.start && (
@@ -341,12 +494,36 @@ const Game: React.FC<GameProps> = ({ mapData }) => {
             ⚠️ No start position set in editor
           </div>
         )}
+        
+        {/* AI Training Status */}
+        {mode === 'ai' && isTraining && (
+          <div className="bg-green-100 border border-green-300 rounded-lg p-3 mb-4 max-w-md mx-auto">
+            <div className="text-sm text-green-800">
+              <div className="flex justify-between mb-1">
+                <span>Episode: {currentEpisode}</span>
+                <span>Reward: {currentReward.toFixed(1)}</span>
+              </div>
+              <div className="text-xs text-green-600">
+                Action: {Action[currentAction]} | Epsilon: {agentRef.current?.getEpsilon().toFixed(3)}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Controls info */}
       <div className="mb-4 text-sm text-gray-600 text-center">
-        <p>Use arrow keys to control the car</p>
-        <p>↑ Accelerate • ↓ Brake/Reverse • ← → Turn</p>
+        {mode === 'manual' ? (
+          <>
+            <p>Use arrow keys to control the car</p>
+            <p>↑ Accelerate • ↓ Brake/Reverse • ← → Turn</p>
+          </>
+        ) : (
+          <>
+            <p>🤖 AI is controlling the car</p>
+            <p>Watch as it learns to navigate the track!</p>
+          </>
+        )}
       </div>
 
       {/* Reset button */}

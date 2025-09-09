@@ -10,7 +10,6 @@ interface EditorProps {
   onMapChange: (map: MapData) => void;
 }
 
-const GRID_SIZE = 20;
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const CELL_SIZE = 20;
