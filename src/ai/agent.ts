@@ -4,9 +4,16 @@ export interface GameState {
   carX: number;
   carY: number;
   carAngle: number;
+  carSpeed: number;
+  carVelocityX: number;
+  carVelocityY: number;
   finishX: number;
   finishY: number;
   distanceToFinish: number;
+  distanceToNearestWall: number;
+  distanceToNearestCar: number;
+  angleToNearestCar: number;
+  progressThroughTrack: number;
   crashed: boolean;
   finished: boolean;
 }
@@ -61,9 +68,9 @@ export class DQNAgent {
     const model = tf.sequential({
       layers: [
         tf.layers.dense({
-          units: 128,
+          units: 256,
           activation: 'relu',
-          inputShape: [6] // [carX, carY, carAngle, finishX, finishY, distanceToFinish]
+          inputShape: [12] // Enhanced state representation with multi-car awareness
         }),
         tf.layers.dropout({ rate: 0.2 }),
         tf.layers.dense({
@@ -91,14 +98,20 @@ export class DQNAgent {
   }
 
   private normalizeState(state: GameState): number[] {
-    // Normalize state values to [0, 1] range for better training
+    // Enhanced state representation with multi-car awareness
     return [
       state.carX / 800, // Canvas width
       state.carY / 600, // Canvas height
       (state.carAngle + Math.PI) / (2 * Math.PI), // Normalize angle to [0, 1]
+      Math.min(Math.abs(state.carSpeed) / 5, 1), // Normalize speed
+      (state.carVelocityX + 5) / 10, // Normalize velocity X to [0, 1]
+      (state.carVelocityY + 5) / 10, // Normalize velocity Y to [0, 1]
       state.finishX / 40, // Grid width
       state.finishY / 30, // Grid height
-      Math.min(state.distanceToFinish / 1000, 1) // Cap and normalize distance
+      Math.min(state.distanceToFinish / 1000, 1), // Cap and normalize distance
+      Math.min(state.distanceToNearestWall / 200, 1), // Distance to walls
+      Math.min(state.distanceToNearestCar / 400, 1), // Distance to other cars
+      (state.angleToNearestCar + Math.PI) / (2 * Math.PI) // Angle to nearest car
     ];
   }
 
@@ -127,26 +140,54 @@ export class DQNAgent {
   ): number {
     let reward = 0;
 
-    // Penalty for crashing
+    // Major penalty for crashing
     if (currentState.crashed) {
-      reward = -100;
+      reward = -150;
     }
     // Big reward for finishing
     else if (currentState.finished) {
-      reward = 200;
+      reward = 300;
     }
-    // Reward for getting closer to finish
+    // Progress reward - getting closer to finish
     else if (currentState.distanceToFinish < prevState.distanceToFinish) {
-      reward = 10 * (prevState.distanceToFinish - currentState.distanceToFinish);
+      reward += 15 * (prevState.distanceToFinish - currentState.distanceToFinish);
     }
-    // Small penalty for getting farther from finish
+    // Penalty for moving away from finish
     else if (currentState.distanceToFinish > prevState.distanceToFinish) {
-      reward = -5;
+      reward -= 8;
     }
-    // Small penalty for time (encourages faster completion)
-    else {
-      reward = -1;
+    
+    // Multi-car specific rewards
+    // Reward for maintaining safe distance from other cars
+    if (currentState.distanceToNearestCar > 50 && currentState.distanceToNearestCar < 100) {
+      reward += 5; // Sweet spot - close but not too close
     }
+    // Penalty for being too close to other cars (collision risk)
+    else if (currentState.distanceToNearestCar < 30) {
+      reward -= 10;
+    }
+    
+    // Reward for staying away from walls
+    if (currentState.distanceToNearestWall > 40) {
+      reward += 2;
+    }
+    // Penalty for being too close to walls
+    else if (currentState.distanceToNearestWall < 20) {
+      reward -= 8;
+    }
+    
+    // Progress through track reward
+    if (currentState.progressThroughTrack > prevState.progressThroughTrack) {
+      reward += 20 * (currentState.progressThroughTrack - prevState.progressThroughTrack);
+    }
+    
+    // Speed reward - encourage appropriate speed
+    const optimalSpeed = 2.5;
+    const speedDiff = Math.abs(currentState.carSpeed - optimalSpeed);
+    reward += Math.max(0, 5 - speedDiff); // Reward for being close to optimal speed
+    
+    // Small time penalty to encourage speed
+    reward -= 0.5;
 
     return reward;
   }

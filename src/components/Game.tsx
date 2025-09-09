@@ -170,9 +170,16 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, onTrainingStats 
       carX: car.x,
       carY: car.y,
       carAngle: car.angle,
+      carSpeed: car.speed,
+      carVelocityX: car.velocity?.x || 0,
+      carVelocityY: car.velocity?.y || 0,
       finishX: mapData.finish?.x || 0,
       finishY: mapData.finish?.y || 0,
       distanceToFinish,
+      distanceToNearestWall: 100, // Simplified for single car
+      distanceToNearestCar: 1000, // No other cars in single mode
+      angleToNearestCar: 0,
+      progressThroughTrack: Math.min(1, distanceToFinish / 800),
       crashed: gameState === 'crashed',
       finished: gameState === 'finished'
     };
