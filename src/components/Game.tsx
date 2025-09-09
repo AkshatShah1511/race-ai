@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { MapData } from './Editor';
 import { DQNAgent, GameState, Action, TrainingStats } from '../ai/agent';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface GameProps {
   mapData: MapData;
@@ -50,6 +51,7 @@ const START = 2;
 const FINISH = 3;
 
 const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrainingStats, onUpdateStats, showGhostTrail = false, onCollisionMessage }) => {
+  const { isDark } = useTheme();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>(0);
   const agentRef = useRef<DQNAgent | null>(null);
@@ -86,7 +88,7 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
   const [totalAttempts, setTotalAttempts] = useState(0);
   const [successfulRuns, setSuccessfulRuns] = useState(0);
   const [trainingElapsed, setTrainingElapsed] = useState(0);
-  const [lastCollisionMessage, setLastCollisionMessage] = useState('');
+  // Collision message is now handled through parent component
   const [bestRunPath, setBestRunPath] = useState<{x: number, y: number}[]>([]);
   const [currentRunPath, setCurrentRunPath] = useState<{x: number, y: number}[]>([]);
   const [bestRunReward, setBestRunReward] = useState(-Infinity);
@@ -287,10 +289,8 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
   const handleSmoothCollision = useCallback(() => {
     if (mode === 'ai' && isTraining) {
       const message = 'AI collision detected, retrying...';
-      setLastCollisionMessage(message);
       onCollisionMessage?.(message);
       setTimeout(() => {
-        setLastCollisionMessage('');
         onCollisionMessage?.('');
       }, 2000);
       
@@ -525,26 +525,26 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
 
         switch (cellType) {
           case WALL:
-            ctx.fillStyle = '#374151';
+            ctx.fillStyle = isDark ? '#374151' : '#4b5563';
             break;
           case ROAD:
-            ctx.fillStyle = '#f3f4f6';
+            ctx.fillStyle = isDark ? '#1f2937' : '#f3f4f6';
             break;
           case START:
-            ctx.fillStyle = '#10b981';
+            ctx.fillStyle = isDark ? '#059669' : '#10b981';
             break;
           case FINISH:
-            ctx.fillStyle = '#ef4444';
+            ctx.fillStyle = isDark ? '#dc2626' : '#ef4444';
             break;
           default:
-            ctx.fillStyle = '#374151';
+            ctx.fillStyle = isDark ? '#374151' : '#4b5563';
         }
 
         ctx.fillRect(pixelX, pixelY, CELL_SIZE, CELL_SIZE);
         
-        // Grid lines
-        ctx.strokeStyle = '#6b7280';
-        ctx.lineWidth = 0.5;
+        // Grid lines with dark mode support
+        ctx.strokeStyle = isDark ? '#4b5563' : '#6b7280';
+        ctx.lineWidth = 0.3;
         ctx.strokeRect(pixelX, pixelY, CELL_SIZE, CELL_SIZE);
       }
     }
@@ -624,7 +624,7 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
     ctx.globalAlpha = 1;
 
     ctx.restore();
-  }, [mapData, car, gameState, mode, showGhostTrail, bestRunPath]);
+  }, [mapData, car, gameState, mode, showGhostTrail, bestRunPath, isDark]);
 
   // Update stats continuously during training
   useEffect(() => {
@@ -686,59 +686,49 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
     }
   };
 
-  const formatTrainingTime = (milliseconds: number): string => {
-    const totalSeconds = Math.floor(milliseconds / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  };
+  // Removed unused formatTrainingTime function
 
   return (
-    <div className="flex flex-col items-center p-8">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-4xl">
+    <div className="flex flex-col items-center p-8 transition-colors duration-300">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-4xl transition-colors duration-300">
         <div className="text-center mb-6">
-          <h1 className={`text-4xl font-bold mb-2 ${
+          <h1 className={`text-4xl font-bold mb-2 transition-colors duration-300 ${
             mode === 'ai' 
-              ? 'text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-emerald-600' 
-              : 'text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600'
+              ? 'text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-emerald-600 dark:from-green-400 dark:to-emerald-400' 
+              : 'text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-400 dark:to-purple-400'
           }`}>
             {mode === 'ai' ? '🤖 AI Racing' : '🏎️ Manual Racing'}
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-gray-300 transition-colors duration-300">
             {mode === 'ai' ? 'Watch the AI learn to navigate the track!' : 'Control the car with arrow keys'}
           </p>
         </div>
       
-        {/* Game status */}
-        <div className="mb-4 text-center">
-        {gameState === 'crashed' && mode === 'manual' && (
-          <div className="text-red-600 text-xl font-bold mb-2">
-            💥 CRASHED! 💥
-          </div>
-        )}
+        {/* Game status - fixed height to prevent layout shift */}
+        <div className="mb-4 text-center h-16 flex items-center justify-center">
         {gameState === 'finished' && (
-          <div className="text-green-600 text-xl font-bold mb-2">
+          <div className="text-green-600 dark:text-green-400 text-xl font-bold transition-colors duration-300">
             🏁 FINISHED! 🏁
           </div>
         )}
+        {gameState === 'crashed' && mode === 'manual' && (
+          <div className="text-red-600 dark:text-red-400 text-xl font-bold transition-colors duration-300">
+            💥 CRASHED! 💥
+          </div>
+        )}
         {gameState === 'playing' && mapData.start && (
-          <div className={`text-lg font-medium mb-2 ${
-            mode === 'ai' ? 'text-green-600' : 'text-blue-600'
+          <div className={`text-lg font-medium transition-colors duration-300 ${
+            mode === 'ai' ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'
           }`}>
             {mode === 'ai' ? '🤖 AI Racing...' : '🏎️ Racing...'}
           </div>
         )}
-        {lastCollisionMessage && mode === 'ai' && (
-          <div className="text-orange-600 text-sm mb-2 bg-orange-50 px-3 py-1 rounded-lg inline-block">
-            {lastCollisionMessage}
-          </div>
-        )}
         {!mapData.start && (
-          <div className="bg-yellow-100 border border-yellow-300 rounded-xl p-4 mb-4 text-center">
-            <div className="text-yellow-700 font-semibold">
+          <div className="bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-xl p-4 text-center transition-colors duration-300">
+            <div className="text-yellow-700 dark:text-yellow-400 font-semibold">
               ⚠️ No start position set in editor
             </div>
-            <div className="text-yellow-600 text-sm mt-1">
+            <div className="text-yellow-600 dark:text-yellow-500 text-sm mt-1">
               Please set a start position in the track editor first
             </div>
           </div>
@@ -767,33 +757,7 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
             />
           </div>
           
-          {/* Crash Overlay */}
-          {gameState === 'crashed' && (
-            <div className="absolute inset-0 bg-red-500/20 rounded-2xl flex items-center justify-center animate-pulse">
-              <div className="bg-red-600 text-white px-8 py-4 rounded-xl shadow-2xl transform animate-bounce">
-                <div className="text-3xl font-bold text-center">
-                  💥 CRASHED!
-                </div>
-                <div className="text-sm text-center mt-2">
-                  {mode === 'ai' ? 'AI is learning from this mistake...' : 'Try again!'}
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Success Overlay */}
-          {gameState === 'finished' && (
-            <div className="absolute inset-0 bg-green-500/20 rounded-2xl flex items-center justify-center">
-              <div className="bg-green-600 text-white px-8 py-4 rounded-xl shadow-2xl transform animate-pulse">
-                <div className="text-3xl font-bold text-center">
-                  🏁 FINISHED!
-                </div>
-                <div className="text-sm text-center mt-2">
-                  {mode === 'ai' ? 'AI successfully completed the track!' : 'Congratulations!'}
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Subtle visual feedback - no sudden overlays */}
           
           {/* Fast Mode Indicator */}
           {fastMode && isTraining && (
@@ -803,42 +767,42 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
           )}
         </div>
 
-        {/* Speed and Control Info */}
+        {/* Speed and Control Info with dark mode */}
         <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-4 text-center transition-colors duration-300">
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 transition-colors duration-300">
               {Math.abs(car.speed).toFixed(1)}
             </div>
-            <div className="text-sm text-blue-700">Speed</div>
-            <div className="w-full h-2 bg-blue-200 rounded-full mt-2">
+            <div className="text-sm text-blue-700 dark:text-blue-300 transition-colors duration-300">Speed</div>
+            <div className="w-full h-2 bg-blue-200 dark:bg-blue-800/30 rounded-full mt-2 transition-colors duration-300">
               <div 
-                className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full transition-all duration-200"
+                className="h-full bg-gradient-to-r from-blue-400 to-blue-600 dark:from-blue-500 dark:to-blue-700 rounded-full transition-all duration-300"
                 style={{ width: `${Math.min((Math.abs(car.speed) / MAX_SPEED) * 100, 100)}%` }}
               />
             </div>
           </div>
           
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 text-center">
-            <div className="text-2xl font-bold text-purple-600">
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-4 text-center transition-colors duration-300">
+            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 transition-colors duration-300">
               {(car.angle * 180 / Math.PI).toFixed(0)}°
             </div>
-            <div className="text-sm text-purple-700">Angle</div>
+            <div className="text-sm text-purple-700 dark:text-purple-300 transition-colors duration-300">Angle</div>
           </div>
           
-          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 text-center">
-            <div className="text-sm text-green-700 mb-1">Controls</div>
-            <div className="text-xs text-green-600">
+          <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-4 text-center transition-colors duration-300">
+            <div className="text-sm text-green-700 dark:text-green-300 mb-1 transition-colors duration-300">Controls</div>
+            <div className="text-xs text-green-600 dark:text-green-400 transition-colors duration-300">
               {mode === 'manual' ? 'Arrow Keys' : 'AI Controlled'}
             </div>
           </div>
         </div>
         
-        {/* Reset button */}
+        {/* Reset button with dark mode styling */}
         {(gameState === 'crashed' || gameState === 'finished') && (
           <div className="mt-6 text-center">
             <button
               onClick={resetCar}
-              className="px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
+              className="px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:to-blue-800 transform hover:scale-105 transition-all duration-300 shadow-lg"
             >
               🔄 Reset Car
             </button>
