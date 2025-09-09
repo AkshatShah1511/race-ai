@@ -1,23 +1,25 @@
 import React, { useState } from 'react';
 import Editor, { MapData } from './components/Editor';
 import Game from './components/Game';
-import MultiCarGame from './components/MultiCarGame';
-import TrainingChart from './components/TrainingChart';
-import Leaderboard from './components/Leaderboard';
-import { TrainingStats } from './ai/agent';
-import { RaceMode, CarCount, RaceStats } from './types/racing';
+import TrainingStats from './components/TrainingStats';
+import { TrainingStats as StatsType } from './ai/agent';
 
-type Mode = 'editor' | 'single-car' | 'multi-car' | 'leaderboard';
-type GameMode = 'manual' | 'ai';
+type Mode = 'editor' | 'manual' | 'ai-training';
 
 function App() {
   const [mode, setMode] = useState<Mode>('editor');
-  const [gameMode, setGameMode] = useState<GameMode>('manual');
-  const [raceMode, setRaceMode] = useState<RaceMode>('user-vs-ai');
-  const [carCount, setCarCount] = useState<CarCount>(2);
   const [isTraining, setIsTraining] = useState(false);
-  const [trainingStats, setTrainingStats] = useState<TrainingStats[]>([]);
-  const [raceStats, setRaceStats] = useState<RaceStats[]>([]);
+  const [trainingStats, setTrainingStats] = useState<StatsType[]>([]);
+  const [fastMode, setFastMode] = useState(false);
+  const [currentEpisode, setCurrentEpisode] = useState(0);
+  const [currentReward, setCurrentReward] = useState(0);
+  const [totalAttempts, setTotalAttempts] = useState(0);
+  const [successfulRuns, setSuccessfulRuns] = useState(0);
+  const [trainingElapsed, setTrainingElapsed] = useState(0);
+  const [epsilon, setEpsilon] = useState(1.0);
+  const [currentAction, setCurrentAction] = useState('NO_ACTION');
+  const [showGhostTrail, setShowGhostTrail] = useState(false);
+  const [collisionMessage, setCollisionMessage] = useState('');
   const [mapData, setMapData] = useState<MapData>({
     grid: Array(30).fill(null).map(() => Array(40).fill(0)),
     start: null,
@@ -28,123 +30,102 @@ function App() {
     setMapData(newMapData);
   };
 
-  const handleTrainingStats = (stats: TrainingStats) => {
+  const handleTrainingStats = (stats: StatsType) => {
     setTrainingStats(prev => {
       const newStats = [...prev, stats];
-      // Keep only the last 100 episodes for performance
-      return newStats.slice(-100);
+      return newStats.slice(-100); // Keep last 100 episodes
     });
+    setCurrentEpisode(stats.episode);
+    setCurrentReward(stats.totalReward);
   };
 
   const startTraining = () => {
-    setGameMode('ai');
-    setMode('single-car');
+    setMode('ai-training');
     setIsTraining(true);
     setTrainingStats([]);
+    setCurrentEpisode(0);
+    setCurrentReward(0);
+    setTotalAttempts(0);
+    setSuccessfulRuns(0);
   };
 
   const stopTraining = () => {
     setIsTraining(false);
+    setMode('editor');
   };
 
-  const handleRaceComplete = (stats: RaceStats[]) => {
-    setRaceStats(prev => [...prev, ...stats]);
-  };
-
-  const clearLeaderboard = () => {
-    setRaceStats([]);
-  };
-
-  const startMultiCarRace = (mode: RaceMode, cars: CarCount) => {
-    setRaceMode(mode);
-    setCarCount(cars);
-    setMode('multi-car');
-    setIsTraining(false);
-  };
-
-  const startMultiCarTraining = (mode: RaceMode, cars: CarCount) => {
-    setRaceMode(mode);
-    setCarCount(cars);
-    setMode('multi-car');
-    setIsTraining(true);
-    setTrainingStats([]);
+  const updateTrainingStats = (
+    episode: number,
+    reward: number,
+    attempts: number,
+    successes: number,
+    elapsed: number,
+    epsilonValue: number,
+    action: string
+  ) => {
+    setCurrentEpisode(episode);
+    setCurrentReward(reward);
+    setTotalAttempts(attempts);
+    setSuccessfulRuns(successes);
+    setTrainingElapsed(elapsed);
+    setEpsilon(epsilonValue);
+    setCurrentAction(action);
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Navigation Header */}
-      <header className="bg-white shadow-md border-b-2 border-gray-200">
-        <div className="max-w-4xl mx-auto px-6 py-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Modern Navigation Header */}
+      <header className="bg-white/80 backdrop-blur-sm shadow-lg border-b border-white/20">
+        <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-800">Race AI 🏎️</h1>
-            <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={() => setMode('editor')}
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  mode === 'editor'
-                    ? 'bg-blue-500 text-white shadow-lg'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                📝 Editor
-              </button>
-              <button
-                onClick={() => { setMode('single-car'); setGameMode('manual'); setIsTraining(false); }}
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  mode === 'single-car' && gameMode === 'manual'
-                    ? 'bg-green-500 text-white shadow-lg'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                🏎️ Manual (1 Car)
-              </button>
-              <button
-                onClick={() => { setMode('single-car'); setGameMode('ai'); setIsTraining(false); }}
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  mode === 'single-car' && gameMode === 'ai' && !isTraining
-                    ? 'bg-purple-500 text-white shadow-lg'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                🤖 AI Play (1 Car)
-              </button>
-              <div className="w-px h-8 bg-gray-300 mx-1" />
-              <button
-                onClick={() => startMultiCarRace('user-vs-ai', 2)}
-                className="px-4 py-2 rounded-lg font-medium transition-all duration-200 bg-indigo-500 text-white hover:bg-indigo-600"
-              >
-                🧑‍🤝‍🧑 User vs AI (2 cars)
-              </button>
-              <button
-                onClick={() => startMultiCarRace('ai-vs-ai', 3)}
-                className="px-4 py-2 rounded-lg font-medium transition-all duration-200 bg-indigo-500 text-white hover:bg-indigo-600"
-              >
-                🤖 vs 🤖 (3 cars)
-              </button>
-              <button
-                onClick={() => startMultiCarRace('ai-vs-ai', 4)}
-                className="px-4 py-2 rounded-lg font-medium transition-all duration-200 bg-indigo-500 text-white hover:bg-indigo-600"
-              >
-                🤖 vs 🤖 (4 cars)
-              </button>
-              <button
-                onClick={() => startMultiCarTraining('ai-vs-ai', 3)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  isTraining ? 'bg-red-500 text-white' : 'bg-orange-500 text-white hover:bg-orange-600'
-                }`}
-              >
-                {isTraining ? '⏹️ Stop Training' : '🎯 Train (AI vs AI)'}
-              </button>
-              <div className="w-px h-8 bg-gray-300 mx-1" />
-              <button
-                onClick={() => setMode('leaderboard')}
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  mode === 'leaderboard' ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                🏆 Leaderboard
-              </button>
+            <div className="flex items-center space-x-4">
+              <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Race AI 🏎️
+              </div>
+              <div className="text-sm text-gray-500 font-medium">
+                Reinforcement Learning Racing
+              </div>
             </div>
+            
+            <nav className="flex items-center space-x-2">
+              <button
+                onClick={() => { setMode('editor'); setIsTraining(false); }}
+                className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                  mode === 'editor'
+                    ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg transform scale-105'
+                    : 'bg-white/50 text-gray-700 hover:bg-white/80 hover:shadow-md'
+                }`}
+              >
+                📝 Editor Mode
+              </button>
+              
+              <button
+                onClick={() => { setMode('manual'); setIsTraining(false); }}
+                className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                  mode === 'manual'
+                    ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg transform scale-105'
+                    : 'bg-white/50 text-gray-700 hover:bg-white/80 hover:shadow-md'
+                }`}
+              >
+                🏎️ Manual Play
+              </button>
+              
+              {!isTraining ? (
+                <button
+                  onClick={startTraining}
+                  className="px-6 py-3 rounded-xl font-semibold bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600 shadow-lg transform hover:scale-105 transition-all duration-300"
+                >
+                  🤖 AI Training
+                </button>
+              ) : (
+                <button
+                  onClick={stopTraining}
+                  className="px-6 py-3 rounded-xl font-semibold bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 shadow-lg transform hover:scale-105 transition-all duration-300"
+                >
+                  ⏹️ Stop Training
+                </button>
+              )}
+            </nav>
           </div>
         </div>
       </header>
@@ -152,62 +133,76 @@ function App() {
       {/* Main Content */}
       <main className="flex-1">
         {mode === 'editor' && (
-          <Editor onMapChange={handleMapChange} />
-        )}
-        
-        {mode === 'single-car' && (
-          <div className="flex flex-col lg:flex-row gap-6 p-6">
-            <div className="flex-1">
-              <Game 
-                mapData={mapData} 
-                mode={gameMode}
-                isTraining={isTraining}
-                onTrainingStats={handleTrainingStats}
-              />
-            </div>
-            {(gameMode === 'ai' || trainingStats.length > 0) && (
-              <div className="lg:w-96">
-                <TrainingChart stats={trainingStats} isTraining={isTraining} />
-              </div>
-            )}
+          <div className="container mx-auto px-6 py-8">
+            <Editor onMapChange={handleMapChange} />
           </div>
         )}
         
-        {mode === 'multi-car' && (
-          <div className="flex flex-col xl:flex-row gap-6 p-6">
-            <div className="flex-1">
-              <MultiCarGame
-                mapData={mapData}
-                raceMode={raceMode}
-                carCount={carCount}
-                isTraining={isTraining}
-                onTrainingStats={handleTrainingStats}
-                onRaceComplete={handleRaceComplete}
-              />
+        {mode === 'manual' && (
+          <div className="container mx-auto px-6 py-8">
+            <div className="flex flex-col lg:flex-row gap-8">
+              <div className="flex-1">
+                <Game 
+                  mapData={mapData} 
+                  mode="manual"
+                  isTraining={false}
+                  fastMode={false}
+                  onTrainingStats={handleTrainingStats}
+                  onUpdateStats={updateTrainingStats}
+                />
+              </div>
             </div>
-            {(isTraining || trainingStats.length > 0) && (
+          </div>
+        )}
+        
+        {mode === 'ai-training' && (
+          <div className="container mx-auto px-6 py-8">
+            <div className="flex flex-col xl:flex-row gap-8">
+              <div className="flex-1">
+                <Game 
+                  mapData={mapData} 
+                  mode="ai"
+                  isTraining={isTraining}
+                  fastMode={fastMode}
+                  onTrainingStats={handleTrainingStats}
+                  onUpdateStats={updateTrainingStats}
+                  showGhostTrail={showGhostTrail}
+                  onCollisionMessage={setCollisionMessage}
+                />
+              </div>
               <div className="xl:w-96">
-                <TrainingChart stats={trainingStats} isTraining={isTraining} />
+                <TrainingStats
+                  stats={trainingStats}
+                  isTraining={isTraining}
+                  currentEpisode={currentEpisode}
+                  currentReward={currentReward}
+                  totalAttempts={totalAttempts}
+                  successfulRuns={successfulRuns}
+                  trainingElapsed={trainingElapsed}
+                  epsilon={epsilon}
+                  currentAction={currentAction}
+                  fastMode={fastMode}
+                  onToggleFastMode={() => setFastMode(!fastMode)}
+                  showGhostTrail={showGhostTrail}
+                  onToggleGhostTrail={() => setShowGhostTrail(!showGhostTrail)}
+                  collisionMessage={collisionMessage}
+                />
               </div>
-            )}
-          </div>
-        )}
-        
-        {mode === 'leaderboard' && (
-          <div className="flex justify-center p-6">
-            <Leaderboard 
-              raceStats={raceStats}
-              onClearLeaderboard={clearLeaderboard}
-            />
+            </div>
           </div>
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="bg-gray-800 text-white text-center py-4 mt-8">
-        <p className="text-sm">
-          Race AI - Stage 3: Multi-Car Racing, Advanced AI & Leaderboards | Built with React, TypeScript & TensorFlow.js
-        </p>
+      {/* Modern Footer */}
+      <footer className="bg-gradient-to-r from-gray-800 to-gray-900 text-white text-center py-6 mt-12">
+        <div className="max-w-7xl mx-auto px-6">
+          <p className="text-sm opacity-90">
+            🏎️ Race AI - Enhanced UI & Advanced Reinforcement Learning | Built with React, TypeScript & TensorFlow.js
+          </p>
+          <p className="text-xs opacity-70 mt-2">
+            Featuring modern UI, intelligent AI training, and real-time performance analytics
+          </p>
+        </div>
       </footer>
     </div>
   );

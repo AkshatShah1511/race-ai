@@ -98,20 +98,20 @@ export class DQNAgent {
   }
 
   private normalizeState(state: GameState): number[] {
-    // Enhanced state representation with multi-car awareness
+    // Enhanced state representation optimized for learning
     return [
-      state.carX / 800, // Canvas width
-      state.carY / 600, // Canvas height
-      (state.carAngle + Math.PI) / (2 * Math.PI), // Normalize angle to [0, 1]
-      Math.min(Math.abs(state.carSpeed) / 5, 1), // Normalize speed
-      (state.carVelocityX + 5) / 10, // Normalize velocity X to [0, 1]
-      (state.carVelocityY + 5) / 10, // Normalize velocity Y to [0, 1]
-      state.finishX / 40, // Grid width
-      state.finishY / 30, // Grid height
-      Math.min(state.distanceToFinish / 1000, 1), // Cap and normalize distance
-      Math.min(state.distanceToNearestWall / 200, 1), // Distance to walls
-      Math.min(state.distanceToNearestCar / 400, 1), // Distance to other cars
-      (state.angleToNearestCar + Math.PI) / (2 * Math.PI) // Angle to nearest car
+      state.carX / 800, // Canvas width [0, 1]
+      state.carY / 600, // Canvas height [0, 1]
+      (state.carAngle + Math.PI) / (2 * Math.PI), // Normalize angle [0, 1]
+      Math.min(Math.abs(state.carSpeed) / 4, 1), // Normalize speed [0, 1]
+      (state.carVelocityX + 4) / 8, // Normalize velocity X [0, 1]
+      (state.carVelocityY + 4) / 8, // Normalize velocity Y [0, 1]
+      Math.min(state.distanceToFinish / 800, 1), // Normalized distance to finish
+      Math.min(state.distanceToNearestWall / 100, 1), // Wall distance [0, 1]
+      state.progressThroughTrack, // Track progress [0, 1]
+      Math.cos(state.carAngle), // Direction vector X
+      Math.sin(state.carAngle), // Direction vector Y
+      state.distanceToFinish < 50 ? 1 : 0 // Near finish flag
     ];
   }
 
@@ -140,54 +140,45 @@ export class DQNAgent {
   ): number {
     let reward = 0;
 
-    // Major penalty for crashing
+    // Collision penalty (reduced for smoother feedback)
     if (currentState.crashed) {
-      reward = -150;
+      reward = -0.5;
     }
     // Big reward for finishing
     else if (currentState.finished) {
-      reward = 300;
+      reward = 10;
     }
-    // Progress reward - getting closer to finish
-    else if (currentState.distanceToFinish < prevState.distanceToFinish) {
-      reward += 15 * (prevState.distanceToFinish - currentState.distanceToFinish);
+    // Forward progress reward
+    else {
+      // Progress reward - getting closer to finish
+      if (currentState.distanceToFinish < prevState.distanceToFinish) {
+        reward += 0.1;
+      }
+      
+      // Wall distance reward - encourage staying away from walls
+      if (currentState.distanceToNearestWall > 40) {
+        reward += 0.05;
+      }
+      // Penalty for being too close to walls
+      else if (currentState.distanceToNearestWall < 20) {
+        reward -= 0.1;
+      }
+      
+      // Progress through track reward
+      if (currentState.progressThroughTrack > prevState.progressThroughTrack) {
+        reward += 0.2 * (currentState.progressThroughTrack - prevState.progressThroughTrack);
+      }
+      
+      // Speed reward - encourage appropriate speed
+      const optimalSpeed = 2.0;
+      const speedDiff = Math.abs(currentState.carSpeed - optimalSpeed);
+      if (speedDiff < 0.5) {
+        reward += 0.02; // Small reward for good speed
+      }
+      
+      // Small step penalty to encourage faster completion
+      reward -= 0.01;
     }
-    // Penalty for moving away from finish
-    else if (currentState.distanceToFinish > prevState.distanceToFinish) {
-      reward -= 8;
-    }
-    
-    // Multi-car specific rewards
-    // Reward for maintaining safe distance from other cars
-    if (currentState.distanceToNearestCar > 50 && currentState.distanceToNearestCar < 100) {
-      reward += 5; // Sweet spot - close but not too close
-    }
-    // Penalty for being too close to other cars (collision risk)
-    else if (currentState.distanceToNearestCar < 30) {
-      reward -= 10;
-    }
-    
-    // Reward for staying away from walls
-    if (currentState.distanceToNearestWall > 40) {
-      reward += 2;
-    }
-    // Penalty for being too close to walls
-    else if (currentState.distanceToNearestWall < 20) {
-      reward -= 8;
-    }
-    
-    // Progress through track reward
-    if (currentState.progressThroughTrack > prevState.progressThroughTrack) {
-      reward += 20 * (currentState.progressThroughTrack - prevState.progressThroughTrack);
-    }
-    
-    // Speed reward - encourage appropriate speed
-    const optimalSpeed = 2.5;
-    const speedDiff = Math.abs(currentState.carSpeed - optimalSpeed);
-    reward += Math.max(0, 5 - speedDiff); // Reward for being close to optimal speed
-    
-    // Small time penalty to encourage speed
-    reward -= 0.5;
 
     return reward;
   }
