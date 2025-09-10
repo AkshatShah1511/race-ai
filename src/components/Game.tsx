@@ -2,10 +2,11 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { MapData } from './Editor';
 import { DQNAgent, GameState, Action, TrainingStats } from '../ai/agent';
 import { useTheme } from '../contexts/ThemeContext';
+import audioEngine from '../utils/sounds';
 
 interface GameProps {
   mapData: MapData;
-  mode: 'manual' | 'ai';
+  mode: 'manual' | 'ai' | 'human-vs-ai';
   isTraining: boolean;
   fastMode: boolean;
   onTrainingStats: (stats: TrainingStats) => void;
@@ -20,6 +21,8 @@ interface GameProps {
   ) => void;
   showGhostTrail?: boolean;
   onCollisionMessage?: (message: string) => void;
+  selectedCarSkin?: string;
+  soundEnabled?: boolean;
 }
 
 interface Car {
@@ -33,16 +36,20 @@ interface Car {
   lastSafeY?: number;
   collisionOpacity?: number;
   isAnimating?: boolean;
+  currentLap: number;
+  checkpointsPassed: number[];
+  skin: string;
+  trail: {x: number, y: number, opacity: number}[];
 }
 
-const CANVAS_WIDTH = 800;
-const CANVAS_HEIGHT = 600;
+const CANVAS_WIDTH = 1200; // Match Editor canvas size
+const CANVAS_HEIGHT = 900; // Match Editor canvas size
 const CELL_SIZE = 20;
 const CAR_SIZE = 12;
 const MAX_SPEED = 3;
 const ACCELERATION = 0.2;
 const DECELERATION = 0.1;
-const TURN_SPEED = 0.08;
+const TURN_SPEED = 0.04; // Reduced turning radius for better control
 
 // Cell types
 const WALL = 0;
@@ -50,7 +57,17 @@ const ROAD = 1;
 const START = 2;
 const FINISH = 3;
 
-const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrainingStats, onUpdateStats, showGhostTrail = false, onCollisionMessage }) => {
+// Car skin colors
+const CAR_SKINS = {
+  cyan: { color: '#00ffff', glow: '#00ffff' },
+  magenta: { color: '#ff00ff', glow: '#ff00ff' },
+  lime: { color: '#39ff14', glow: '#39ff14' },
+  orange: { color: '#ff8c00', glow: '#ff8c00' },
+  purple: { color: '#8a2be2', glow: '#8a2be2' },
+  pink: { color: '#ff1493', glow: '#ff1493' }
+};
+
+const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrainingStats, onUpdateStats, showGhostTrail = false, onCollisionMessage, selectedCarSkin = 'cyan', soundEnabled = true }) => {
   const { isDark } = useTheme();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>(0);
@@ -70,7 +87,11 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
     lastSafeX: 0,
     lastSafeY: 0,
     collisionOpacity: 1,
-    isAnimating: false
+    isAnimating: false,
+    currentLap: 0,
+    checkpointsPassed: [],
+    skin: selectedCarSkin,
+    trail: []
   });
   
   const [gameState, setGameState] = useState<'playing' | 'crashed' | 'finished'>('playing');
@@ -88,10 +109,17 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
   const [totalAttempts, setTotalAttempts] = useState(0);
   const [successfulRuns, setSuccessfulRuns] = useState(0);
   const [trainingElapsed, setTrainingElapsed] = useState(0);
+  const [engineStarted, setEngineStarted] = useState(false);
   // Collision message is now handled through parent component
   const [bestRunPath, setBestRunPath] = useState<{x: number, y: number}[]>([]);
   const [currentRunPath, setCurrentRunPath] = useState<{x: number, y: number}[]>([]);
   const [bestRunReward, setBestRunReward] = useState(-Infinity);
+  // Reserved for future features
+  // const [crashHeatmap, setCrashHeatmap] = useState<{x: number, y: number, intensity: number}[]>([]);
+  // const [showHeatmap, setShowHeatmap] = useState(false);
+  // const [rewardHistory, setRewardHistory] = useState<number[]>([]);
+  // const [isReplaying, setIsReplaying] = useState(false);
+  // const [humanCar, setHumanCar] = useState<Car | null>(null);
 
   // Initialize AI agent and training timer
   useEffect(() => {
@@ -122,6 +150,14 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
     };
   }, [isTraining, trainingStartTime]);
 
+  // Update car skin when selectedCarSkin changes
+  useEffect(() => {
+    setCar(prev => ({
+      ...prev,
+      skin: selectedCarSkin
+    }));
+  }, [selectedCarSkin]);
+
   // Initialize car position at start
   useEffect(() => {
     if (mapData.start) {
@@ -135,8 +171,14 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
       setGameState('playing');
       episodeRewardRef.current = 0;
       episodeStepsRef.current = 0;
+      
+      // Start engine sound for manual mode only
+      if (mode === 'manual' && soundEnabled && !engineStarted) {
+        audioEngine.startEngine();
+        setEngineStarted(true);
+      }
     }
-  }, [mapData.start, currentEpisode]);
+  }, [mapData.start, currentEpisode, mode, soundEnabled, engineStarted]);
 
   // Handle keyboard input
   useEffect(() => {
@@ -283,7 +325,7 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
       crashed: gameState === 'crashed',
       finished: gameState === 'finished'
     };
-  }, [car, mapData.finish, mapData.start, mapData.grid, gameState, getWallDistance]);
+  }, [mapData.finish, mapData.start, gameState, getWallDistance]);
 
   // Smooth collision handler
   const handleSmoothCollision = useCallback(() => {
@@ -423,6 +465,11 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
           });
         }
         
+        // Play crash sound
+        if (soundEnabled && mode === 'manual') {
+          audioEngine.playBriefCrash();
+        }
+        
         // Use smooth collision handler
         handleSmoothCollision();
         
@@ -435,6 +482,11 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
       // Check if reached finish
       if (checkFinish(newX, newY)) {
         setGameState('finished');
+        
+        // Play finish sound
+        if (soundEnabled && mode === 'manual') {
+          audioEngine.playFinish();
+        }
         
         // Handle AI training
         if (mode === 'ai' && agentRef.current && isTraining) {
@@ -471,9 +523,34 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
           }, 100);
         }
         
-        return { ...prevCar, x: newX, y: newY, speed: 0 };
+        // Clear trail when game finishes
+        return { ...prevCar, x: newX, y: newY, speed: 0, trail: [] };
       }
 
+      // Create trail for manual mode when showGhostTrail is enabled
+      let newTrail = prevCar.trail || [];
+      if (showGhostTrail && mode === 'manual' && Math.abs(newSpeed) > 0.1) {
+        // Add current position to trail
+        newTrail = [...newTrail, { x: newX, y: newY, opacity: 0.6 }];
+        
+        // Limit trail length and fade out older points
+        if (newTrail.length > 50) {
+          newTrail = newTrail.slice(-50);
+        }
+        
+        // Fade out trail points over time
+        newTrail = newTrail.map((point, index) => ({
+          ...point,
+          opacity: Math.max(0, (index / newTrail.length) * 0.6)
+        }));
+      }
+
+      // Update engine sound based on speed and acceleration (manual mode only)
+      if (mode === 'manual' && soundEnabled && engineStarted) {
+        const isAccelerating = keys.up;
+        audioEngine.updateEngine(newSpeed, isAccelerating);
+      }
+      
       const newState = {
         ...prevCar,
         x: newX,
@@ -481,7 +558,8 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
         angle: newAngle,
         speed: newSpeed,
         lastSafeX: newX,
-        lastSafeY: newY
+        lastSafeY: newY,
+        trail: newTrail
       };
       
       // Track path for ghost trail
@@ -511,7 +589,7 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
       
       return newState;
     });
-  }, [keys, gameState, checkCollision, checkFinish, mode, isTraining, currentAction, getGameState, applyAction, handleSmoothCollision, currentRunPath, bestRunReward]);
+  }, [keys, gameState, checkCollision, checkFinish, mode, isTraining, currentAction, getGameState, applyAction, handleSmoothCollision, currentRunPath, bestRunReward, onTrainingStats, showGhostTrail]);
 
   const drawGame = useCallback((ctx: CanvasRenderingContext2D) => {
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -564,16 +642,55 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
       ctx.fillText('F', mapData.finish.x * CELL_SIZE + CELL_SIZE/2, mapData.finish.y * CELL_SIZE + CELL_SIZE/2 + 4);
     }
 
-    // Draw ghost trail if enabled
+    // Draw ghost trail if enabled - with car skin color support
     if (showGhostTrail && bestRunPath.length > 1) {
-      ctx.strokeStyle = 'rgba(59, 130, 246, 0.3)';
-      ctx.lineWidth = 2;
+      let trailColor = 'rgba(59, 130, 246, 0.3)'; // Default blue
+      
+      // Use car skin color for trail if available
+      if (mode === 'manual' && car.skin && CAR_SKINS[car.skin as keyof typeof CAR_SKINS]) {
+        const skinData = CAR_SKINS[car.skin as keyof typeof CAR_SKINS];
+        // Extract RGB from hex and add alpha
+        const hex = skinData.color.replace('#', '');
+        const r = parseInt(hex.substr(0, 2), 16);
+        const g = parseInt(hex.substr(2, 2), 16);
+        const b = parseInt(hex.substr(4, 2), 16);
+        trailColor = `rgba(${r}, ${g}, ${b}, 0.4)`;
+      }
+      
+      ctx.strokeStyle = trailColor;
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(bestRunPath[0].x, bestRunPath[0].y);
       for (let i = 1; i < bestRunPath.length; i++) {
         ctx.lineTo(bestRunPath[i].x, bestRunPath[i].y);
       }
       ctx.stroke();
+    }
+
+    // Draw real-time car trail if showGhostTrail is enabled
+    if (showGhostTrail && car.trail && car.trail.length > 1) {
+      let trailColor = 'rgba(59, 130, 246, 0.2)'; // Default blue
+      
+      // Use car skin color for real-time trail if available
+      if (mode === 'manual' && car.skin && CAR_SKINS[car.skin as keyof typeof CAR_SKINS]) {
+        const skinData = CAR_SKINS[car.skin as keyof typeof CAR_SKINS];
+        const hex = skinData.color.replace('#', '');
+        const r = parseInt(hex.substr(0, 2), 16);
+        const g = parseInt(hex.substr(2, 2), 16);
+        const b = parseInt(hex.substr(4, 2), 16);
+        trailColor = `rgba(${r}, ${g}, ${b}, 0.3)`;
+      }
+      
+      for (let i = 0; i < car.trail.length - 1; i++) {
+        const point = car.trail[i];
+        ctx.strokeStyle = `rgba(${trailColor.match(/\d+/g)![0]}, ${trailColor.match(/\d+/g)![1]}, ${trailColor.match(/\d+/g)![2]}, ${point.opacity})`;
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 1, 0, Math.PI * 2);
+        ctx.stroke();
+      }
     }
 
     // Draw car with enhanced visuals
@@ -599,13 +716,27 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
       );
     }
 
-    // Car body (triangle pointing forward)
-    let carColor = '#3b82f6'; // Default blue
+    // Car body (triangle pointing forward) with skin support
+    let carColor = '#3b82f6'; // Default blue fallback
+    let glowColor = '#3b82f6';
+    
     if (gameState === 'crashed' && mode !== 'ai') {
       carColor = '#ef4444'; // Red for crashed (manual mode only)
+      glowColor = '#ef4444';
     } else if (mode === 'ai') {
       carColor = '#10b981'; // Green for AI
+      glowColor = '#10b981';
+    } else if (mode === 'manual' && car.skin && CAR_SKINS[car.skin as keyof typeof CAR_SKINS]) {
+      // Use selected skin for manual mode
+      const skinData = CAR_SKINS[car.skin as keyof typeof CAR_SKINS];
+      carColor = skinData.color;
+      glowColor = skinData.glow;
+      
+      // Add neon glow effect for manual mode
+      ctx.shadowColor = glowColor;
+      ctx.shadowBlur = 10;
     }
+    
     ctx.fillStyle = carColor;
     ctx.beginPath();
     ctx.moveTo(CAR_SIZE/2, 0); // Front point
@@ -614,9 +745,15 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
     ctx.closePath();
     ctx.fill();
 
-    // Car outline
-    ctx.strokeStyle = '#1f2937';
-    ctx.lineWidth = 2;
+    // Car outline with skin-matching color
+    if (mode === 'manual' && car.skin && CAR_SKINS[car.skin as keyof typeof CAR_SKINS]) {
+      // Use a darker version of the skin color for outline
+      ctx.strokeStyle = glowColor + '80'; // Add some transparency
+      ctx.lineWidth = 2;
+    } else {
+      ctx.strokeStyle = '#1f2937';
+      ctx.lineWidth = 2;
+    }
     ctx.stroke();
     
     // Reset shadow
@@ -680,11 +817,43 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
         x: mapData.start!.x * CELL_SIZE + CELL_SIZE / 2,
         y: mapData.start!.y * CELL_SIZE + CELL_SIZE / 2,
         speed: 0,
-        angle: 0
+        angle: 0,
+        trail: [] // Clear trail when resetting
       }));
       setGameState('playing');
+      
+      // Restart engine sound if manual mode
+      if (mode === 'manual' && soundEnabled) {
+        if (engineStarted) {
+          audioEngine.stopEngine();
+        }
+        setTimeout(() => {
+          audioEngine.startEngine();
+          setEngineStarted(true);
+        }, 100);
+      }
     }
   };
+  
+  // Cleanup sounds on component unmount
+  useEffect(() => {
+    return () => {
+      audioEngine.stopEngine();
+    };
+  }, []);
+  
+  // Handle sound enable/disable based on prop changes
+  useEffect(() => {
+    if (mode === 'manual') {
+      if (soundEnabled && !engineStarted) {
+        audioEngine.startEngine();
+        setEngineStarted(true);
+      } else if (!soundEnabled && engineStarted) {
+        audioEngine.stopEngine();
+        setEngineStarted(false);
+      }
+    }
+  }, [soundEnabled, mode, engineStarted]);
 
   // Removed unused formatTrainingTime function
 
@@ -747,14 +916,21 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
 
         {/* Game canvas with overlay */}
         <div className="relative">
-          <div className="rounded-2xl overflow-hidden shadow-2xl border-4 border-gray-200">
-            <canvas
-              ref={canvasRef}
-              width={CANVAS_WIDTH}
-              height={CANVAS_HEIGHT}
-              className="block focus:outline-none"
-              tabIndex={0}
-            />
+          <div className="rounded-2xl shadow-2xl border-2 border-gray-300 dark:border-gray-600 max-w-4xl max-h-96 overflow-auto bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900">
+            <div className="p-4">
+              <div className="text-center mb-2">
+                <div className="text-xs text-gray-600 dark:text-gray-400 font-medium">
+                  🎮 EXPANDED RACING AREA • Scroll to navigate
+                </div>
+              </div>
+              <canvas
+                ref={canvasRef}
+                width={CANVAS_WIDTH}
+                height={CANVAS_HEIGHT}
+                className="block focus:outline-none border border-gray-300 dark:border-gray-600 rounded-lg"
+                tabIndex={0}
+              />
+            </div>
           </div>
           
           {/* Subtle visual feedback - no sudden overlays */}

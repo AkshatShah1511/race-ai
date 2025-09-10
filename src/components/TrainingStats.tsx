@@ -1,6 +1,7 @@
 import React from 'react';
 import { TrainingStats as StatsType } from '../ai/agent';
-import { useTheme } from '../contexts/ThemeContext';
+import RewardChart from './RewardChart';
+// import { useTheme } from '../contexts/ThemeContext'; // Reserved for future enhancements
 
 interface TrainingStatsProps {
   stats: StatsType[];
@@ -17,6 +18,11 @@ interface TrainingStatsProps {
   showGhostTrail?: boolean;
   onToggleGhostTrail?: () => void;
   collisionMessage?: string;
+  rewardHistory: number[];
+  showHeatmap?: boolean;
+  onToggleHeatmap?: () => void;
+  onReplayBest?: () => void;
+  isReplaying?: boolean;
 }
 
 const TrainingStats: React.FC<TrainingStatsProps> = ({
@@ -34,8 +40,13 @@ const TrainingStats: React.FC<TrainingStatsProps> = ({
   showGhostTrail = false,
   onToggleGhostTrail,
   collisionMessage,
+  rewardHistory,
+  showHeatmap = false,
+  onToggleHeatmap,
+  onReplayBest,
+  isReplaying = false,
 }) => {
-  const { isDark } = useTheme();
+  // const { isDark } = useTheme(); // Reserved for future dark mode enhancements
   
   const formatTrainingTime = (milliseconds: number): string => {
     const totalSeconds = Math.floor(milliseconds / 1000);
@@ -178,39 +189,86 @@ const TrainingStats: React.FC<TrainingStatsProps> = ({
         </button>
       </div>
 
-      {/* Ghost Trail Toggle with dark mode */}
-      {onToggleGhostTrail && (
-        <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg transition-colors duration-300">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-300">👻 Ghost Trail</span>
-            <span className="text-xs text-gray-500 dark:text-gray-400 transition-colors duration-300">(Show best run)</span>
+      {/* Advanced Controls Grid */}
+      <div className="space-y-3">
+        {/* Ghost Trail Toggle */}
+        {onToggleGhostTrail && (
+          <div className="cyber-button p-3 rounded-lg flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm font-[Orbitron] neon-text-purple">👻 GHOST TRAIL</span>
+              <span className="text-xs neon-text-cyan opacity-60">(Best run)</span>
+            </div>
+            <button
+              onClick={onToggleGhostTrail}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                showGhostTrail ? 'neon-glow-purple bg-purple-600' : 'bg-gray-600'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  showGhostTrail ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
           </div>
+        )}
+        
+        {/* Heatmap Toggle */}
+        {onToggleHeatmap && (
+          <div className="cyber-button p-3 rounded-lg flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm font-[Orbitron] neon-text-magenta">🔥 CRASH HEATMAP</span>
+              <span className="text-xs neon-text-cyan opacity-60">(Danger zones)</span>
+            </div>
+            <button
+              onClick={onToggleHeatmap}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                showHeatmap ? 'neon-glow-magenta bg-pink-600' : 'bg-gray-600'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  showHeatmap ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+        )}
+        
+        {/* Replay Control */}
+        {onReplayBest && (
           <button
-            onClick={onToggleGhostTrail}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              showGhostTrail ? 'bg-purple-600 dark:bg-purple-500' : 'bg-gray-300 dark:bg-gray-600'
+            onClick={onReplayBest}
+            disabled={isReplaying}
+            className={`cyber-button w-full p-3 rounded-lg font-[Orbitron] font-bold text-center transition-all ${
+              isReplaying 
+                ? 'neon-glow-green border-green-400 text-green-400' 
+                : 'neon-glow-cyan hover:neon-glow-purple'
             }`}
           >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                showGhostTrail ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
+            {isReplaying ? '▶️ REPLAYING...' : '🎥 REPLAY BEST'}
           </button>
+        )}
+      </div>
+
+      {/* Reward Evolution Chart */}
+      {rewardHistory.length > 0 && (
+        <div className="mt-6">
+          <RewardChart rewardHistory={rewardHistory} />
         </div>
       )}
 
       {/* Performance Chart Mini View with dark mode */}
       {stats.length > 0 && (
         <div className="mt-6">
-          <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">Recent Performance</div>
+          <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">Episode Length</div>
           <div className="flex items-end space-x-1 h-16">
             {stats.slice(-20).map((stat, index) => {
-              const height = Math.max(4, Math.min(64, (stat.totalReward + 50) * 0.4));
+              const height = Math.max(4, Math.min(64, (stat.episodeLength / 500) * 64));
               return (
                 <div
                   key={index}
-                  className="bg-gradient-to-t from-blue-400 to-blue-600 dark:from-blue-500 dark:to-blue-700 rounded-sm flex-1 transition-all duration-300"
+                  className="bg-gradient-to-t from-purple-400 to-purple-600 dark:from-purple-500 dark:to-purple-700 rounded-sm flex-1 transition-all duration-300"
                   style={{ height: `${height}px` }}
                 ></div>
               );

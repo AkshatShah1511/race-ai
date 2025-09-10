@@ -2,16 +2,221 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Softer Cyberpunk Theme Variables - Eye-soothing palette */
+:root {
+  --neon-cyan: #4dd0e1;      /* Softer cyan */
+  --neon-magenta: #e91e63;    /* Softer magenta */
+  --neon-purple: #9c27b0;     /* Softer purple */
+  --neon-pink: #f06292;       /* Softer pink */
+  --neon-green: #66bb6a;      /* Softer green */
+  --neon-blue: #42a5f5;       /* Softer blue */
+  --cyber-dark: #0f0f0f;      /* Slightly lighter dark */
+  --cyber-darker: #0a0a0a;
+  --cyber-gray: #1e1e1e;      /* Slightly lighter gray */
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Orbitron', 'Audiowide', monospace;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: var(--cyber-dark);
+  color: var(--neon-cyan);
+  overflow-x: hidden;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: 'Orbitron', source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+/* Soft Glow Utilities - Less flashy, more eye-soothing */
+@layer utilities {
+  .neon-glow-cyan {
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.4), 
+                0 0 16px rgba(0, 255, 255, 0.2);
+  }
+  
+  .neon-glow-magenta {
+    box-shadow: 0 0 8px rgba(255, 0, 255, 0.4), 
+                0 0 16px rgba(255, 0, 255, 0.2);
+  }
+  
+  .neon-glow-purple {
+    box-shadow: 0 0 8px rgba(138, 43, 226, 0.4), 
+                0 0 16px rgba(138, 43, 226, 0.2);
+  }
+  
+  .neon-glow-green {
+    box-shadow: 0 0 8px rgba(57, 255, 20, 0.4), 
+                0 0 16px rgba(57, 255, 20, 0.2);
+  }
+  
+  .neon-glow-red {
+    box-shadow: 0 0 8px rgba(255, 68, 68, 0.4), 
+                0 0 16px rgba(255, 68, 68, 0.2);
+  }
+  
+  .neon-text-cyan {
+    color: var(--neon-cyan);
+    text-shadow: 0 0 4px rgba(0, 255, 255, 0.6), 
+                 0 0 8px rgba(0, 255, 255, 0.3);
+  }
+  
+  .neon-text-magenta {
+    color: var(--neon-magenta);
+    text-shadow: 0 0 4px rgba(255, 0, 255, 0.6), 
+                 0 0 8px rgba(255, 0, 255, 0.3);
+  }
+  
+  .neon-text-purple {
+    color: var(--neon-purple);
+    text-shadow: 0 0 4px rgba(138, 43, 226, 0.6), 
+                 0 0 8px rgba(138, 43, 226, 0.3);
+  }
+  
+  .neon-border-cyan {
+    border: 2px solid var(--neon-cyan);
+    box-shadow: inset 0 0 10px rgba(0, 255, 255, 0.3), 
+                0 0 10px var(--neon-cyan);
+  }
+  
+  .neon-border-magenta {
+    border: 2px solid var(--neon-magenta);
+    box-shadow: inset 0 0 10px rgba(255, 0, 255, 0.3), 
+                0 0 10px var(--neon-magenta);
+  }
+  
+  .cyber-panel {
+    background: linear-gradient(135deg, 
+                rgba(30, 30, 30, 0.85) 0%, 
+                rgba(15, 15, 15, 0.92) 100%);
+    border: 1px solid rgba(77, 208, 225, 0.6); /* Softer border */
+    box-shadow: inset 0 0 20px rgba(77, 208, 225, 0.05), 
+                0 0 15px rgba(77, 208, 225, 0.1);
+    backdrop-filter: blur(12px);
+    border-radius: 12px; /* More rounded corners */
+  }
+  
+  .cyber-button {
+    background: linear-gradient(145deg, 
+                rgba(30, 30, 30, 0.8) 0%, 
+                rgba(15, 15, 15, 0.9) 100%);
+    border: 2px solid var(--neon-cyan);
+    color: var(--neon-cyan);
+    font-family: 'Orbitron', monospace;
+    font-weight: 600; /* Slightly less bold */
+    letter-spacing: 0.3px; /* Tighter spacing */
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); /* Smoother easing */
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px; /* Slightly rounded corners */
+  }
+  
+  .cyber-button:hover {
+    background: linear-gradient(145deg, 
+                rgba(0, 255, 255, 0.05) 0%, 
+                rgba(26, 26, 26, 0.8) 100%);
+    box-shadow: 0 0 12px rgba(0, 255, 255, 0.4), 
+                inset 0 0 12px rgba(0, 255, 255, 0.05);
+    transform: translateY(-1px);
+  }
+  
+  .cyber-button:active {
+    transform: translateY(0px);
+    box-shadow: 0 0 6px rgba(0, 255, 255, 0.6);
+  }
+  
+  .neon-progress {
+    background: rgba(26, 26, 26, 0.8);
+    border: 1px solid var(--neon-cyan);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+  }
+  
+  .neon-progress-bar {
+    background: linear-gradient(90deg, 
+                var(--neon-cyan) 0%, 
+                var(--neon-magenta) 50%, 
+                var(--neon-purple) 100%);
+    height: 100%;
+    border-radius: 8px;
+    box-shadow: 0 0 10px var(--neon-cyan);
+    transition: width 0.3s ease;
+  }
+  
+  .cyber-grid {
+    background-image: 
+      linear-gradient(rgba(0, 255, 255, 0.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 255, 255, 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  
+  .pulse-neon {
+    animation: pulseNeon 3s ease-in-out infinite alternate; /* Slower, more relaxed pulse */
+  }
+  
+  @keyframes pulseNeon {
+    from {
+      box-shadow: 0 0 3px var(--neon-cyan), 
+                  0 0 6px var(--neon-cyan);
+    }
+    to {
+      box-shadow: 0 0 6px var(--neon-cyan), 
+                  0 0 12px var(--neon-cyan), 
+                  0 0 18px var(--neon-cyan);
+    }
+  }
+  
+  .slide-up {
+    animation: slideUp 0.5s ease-out forwards;
+  }
+  
+  @keyframes slideUp {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  
+  .fade-in {
+    animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+  
+  @keyframes fadeIn {
+    from { 
+      opacity: 0; 
+      transform: translateY(10px);
+    }
+    to { 
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Subtle breathing animation for panels */
+  .breathe {
+    animation: breathe 4s ease-in-out infinite;
+  }
+  
+  @keyframes breathe {
+    0%, 100% {
+      box-shadow: inset 0 0 20px rgba(77, 208, 225, 0.05), 
+                  0 0 15px rgba(77, 208, 225, 0.1);
+    }
+    50% {
+      box-shadow: inset 0 0 25px rgba(77, 208, 225, 0.08), 
+                  0 0 20px rgba(77, 208, 225, 0.15);
+    }
+  }
+  
+  /* Smooth focus styles */
+  .cyber-button:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(77, 208, 225, 0.3);
+  }
 }
