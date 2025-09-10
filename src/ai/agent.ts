@@ -300,9 +300,67 @@ export class DQNAgent {
   public getEpsilon(): number {
     return this.epsilon;
   }
-
+  
+  // Get current Q-values for a state (for visualization)
+  public getQValues(state: GameState): { min: number; max: number; mean: number } | null {
+    try {
+      const normalizedState = this.normalizeState(state);
+      const stateTensor = tf.tensor2d([normalizedState]);
+      const qValues = this.model.predict(stateTensor) as tf.Tensor;
+      const qValuesArray = Array.from(qValues.dataSync());
+      
+      stateTensor.dispose();
+      qValues.dispose();
+      
+      return {
+        min: Math.min(...qValuesArray),
+        max: Math.max(...qValuesArray),
+        mean: qValuesArray.reduce((sum, val) => sum + val, 0) / qValuesArray.length
+      };
+    } catch (error) {
+      console.warn('Error getting Q-values:', error);
+      return null;
+    }
+  }
+  
+  // Get replay buffer size
   public getReplayBufferSize(): number {
     return this.replayBuffer.length;
+  }
+  
+  // Get training step count
+  public getTrainingStep(): number {
+    return this.updateCounter;
+  }
+  
+  // Calculate TD-error for last experience (for visualization)
+  public getLastTDError(): number {
+    if (this.replayBuffer.length === 0) return 0;
+    
+    try {
+      const lastExperience = this.replayBuffer[this.replayBuffer.length - 1];
+      const stateTensor = tf.tensor2d([lastExperience.state]);
+      const nextStateTensor = tf.tensor2d([lastExperience.nextState]);
+      
+      const qValues = this.model.predict(stateTensor) as tf.Tensor;
+      const nextQValues = this.targetModel.predict(nextStateTensor) as tf.Tensor;
+      
+      const currentQ = (qValues as any).gather([lastExperience.action], 1).dataSync()[0];
+      const maxNextQ = tf.max(nextQValues, 1).dataSync()[0];
+      
+      const targetQ = lastExperience.reward + (lastExperience.done ? 0 : this.gamma * maxNextQ);
+      const tdError = Math.abs(targetQ - currentQ);
+      
+      stateTensor.dispose();
+      nextStateTensor.dispose();
+      qValues.dispose();
+      nextQValues.dispose();
+      
+      return tdError;
+    } catch (error) {
+      console.warn('Error calculating TD-error:', error);
+      return 0;
+    }
   }
 
   public async save(): Promise<void> {

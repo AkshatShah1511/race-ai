@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import Editor, { MapData } from './components/Editor';
 import Game from './components/Game';
 import TrainingStats from './components/TrainingStats';
 import ThemeToggle from './components/ThemeToggle';
+import AIInspector from './components/AIInspector';
 import { TrainingStats as StatsType } from './ai/agent';
 import { ThemeProvider } from './contexts/ThemeContext';
 
@@ -27,6 +28,19 @@ function AppContent() {
   const [rewardHistory] = useState<number[]>([]);
   const [isReplaying, setIsReplaying] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  
+  // AI Inspector metrics
+  const [aiMetrics, setAiMetricsState] = useState<{
+    qValues: { min: number; max: number; mean: number } | null;
+    tdError: number;
+    replayBufferSize: number;
+    trainingStep: number;
+  }>({ qValues: null, tdError: 0, replayBufferSize: 0, trainingStep: 0 });
+  
+  const setAiMetrics = useCallback((metrics: { qValues: { min: number; max: number; mean: number } | null; tdError: number; replayBufferSize: number; trainingStep: number; }) => {
+    setAiMetricsState(metrics);
+  }, []);
+  
   const [mapData, setMapData] = useState<MapData>({
     grid: Array(30).fill(null).map(() => Array(40).fill(0)),
     start: null,
@@ -323,10 +337,24 @@ function AppContent() {
                   onUpdateStats={updateTrainingStats}
                   showGhostTrail={showGhostTrail}
                   onCollisionMessage={setCollisionMessage}
+                  soundEnabled={soundEnabled}
+                  onAIMetrics={setAiMetrics}
                 />
               </div>
               {/* Cyberpunk stats panel */}
-              <div className="w-full xl:w-[400px] xl:sticky xl:top-8">
+              <div className="w-full xl:w-[400px] xl:sticky xl:top-8 space-y-6">
+                {/* New AI Inspector Panel */}
+                <AIInspector
+                  currentEpisode={currentEpisode}
+                  epsilon={epsilon}
+                  meanReward={currentReward / Math.max(currentEpisode, 1)}
+                  replayBufferSize={aiMetrics.replayBufferSize}
+                  trainingStep={aiMetrics.trainingStep}
+                  qValues={aiMetrics.qValues}
+                  collisionRate={totalAttempts > 0 ? (totalAttempts - successfulRuns) / totalAttempts : 0}
+                  onCollisionMessage={setCollisionMessage}
+                />
+                
                 <TrainingStats
                   stats={trainingStats}
                   isTraining={isTraining}

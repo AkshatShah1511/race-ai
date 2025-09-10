@@ -2,77 +2,105 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Softer Cyberpunk Theme Variables - Eye-soothing palette */
+/* INTENSE CYBERPUNK NEON THEME - Maximum Flash Mode! */
 :root {
-  --neon-cyan: #4dd0e1;      /* Softer cyan */
-  --neon-magenta: #e91e63;    /* Softer magenta */
-  --neon-purple: #9c27b0;     /* Softer purple */
-  --neon-pink: #f06292;       /* Softer pink */
-  --neon-green: #66bb6a;      /* Softer green */
-  --neon-blue: #42a5f5;       /* Softer blue */
-  --cyber-dark: #0f0f0f;      /* Slightly lighter dark */
-  --cyber-darker: #0a0a0a;
-  --cyber-gray: #1e1e1e;      /* Slightly lighter gray */
+  --neon-cyan: #00ffff;       /* Electric cyan */
+  --neon-magenta: #ff00ff;    /* Hot magenta */
+  --neon-purple: #8b00ff;     /* Electric purple */
+  --neon-pink: #ff1493;       /* Deep pink */
+  --neon-green: #39ff14;      /* Toxic green */
+  --neon-blue: #0080ff;       /* Electric blue */
+  --neon-orange: #ff4500;     /* Neon orange */
+  --neon-yellow: #ffff00;     /* Electric yellow */
+  --cyber-dark: #000000;      /* Pure black */
+  --cyber-darker: #0a0a0a;    /* Deeper black */
+  --cyber-gray: #1a1a1a;      /* Dark gray */
+  --cyber-grid: #003d4d;      /* Tron grid color */
+  --synthwave-pink: #ff0090;  /* Synthwave pink */
+  --synthwave-blue: #00d4ff;  /* Synthwave blue */
 }
 
 body {
   margin: 0;
-  font-family: 'Orbitron', 'Audiowide', monospace;
+  font-family: 'Exo 2', 'Orbitron', 'Teko', 'Audiowide', monospace;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: var(--cyber-dark);
+  background: #000000;
   color: var(--neon-cyan);
   overflow-x: hidden;
+  min-height: 100vh;
 }
 
 code {
   font-family: 'Orbitron', source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
 
-/* Soft Glow Utilities - Less flashy, more eye-soothing */
+/* SUBTLE NEON GLOW UTILITIES - No overwhelming effects */
 @layer utilities {
   .neon-glow-cyan {
-    box-shadow: 0 0 8px rgba(0, 255, 255, 0.4), 
-                0 0 16px rgba(0, 255, 255, 0.2);
+    border: 1px solid var(--neon-cyan);
   }
   
   .neon-glow-magenta {
-    box-shadow: 0 0 8px rgba(255, 0, 255, 0.4), 
-                0 0 16px rgba(255, 0, 255, 0.2);
+    border: 1px solid var(--neon-magenta);
   }
   
   .neon-glow-purple {
-    box-shadow: 0 0 8px rgba(138, 43, 226, 0.4), 
-                0 0 16px rgba(138, 43, 226, 0.2);
+    border: 1px solid var(--neon-purple);
   }
   
   .neon-glow-green {
-    box-shadow: 0 0 8px rgba(57, 255, 20, 0.4), 
-                0 0 16px rgba(57, 255, 20, 0.2);
+    border: 1px solid var(--neon-green);
   }
   
   .neon-glow-red {
-    box-shadow: 0 0 8px rgba(255, 68, 68, 0.4), 
-                0 0 16px rgba(255, 68, 68, 0.2);
+    border: 1px solid #ff0000;
+  }
+  
+  .neon-glow-orange {
+    border: 1px solid var(--neon-orange);
+  }
+  
+  .neon-glow-yellow {
+    border: 1px solid var(--neon-yellow);
+  }
+  
+  .synthwave-glow {
+    border: 1px solid var(--synthwave-pink);
   }
   
   .neon-text-cyan {
     color: var(--neon-cyan);
-    text-shadow: 0 0 4px rgba(0, 255, 255, 0.6), 
-                 0 0 8px rgba(0, 255, 255, 0.3);
   }
   
   .neon-text-magenta {
     color: var(--neon-magenta);
-    text-shadow: 0 0 4px rgba(255, 0, 255, 0.6), 
-                 0 0 8px rgba(255, 0, 255, 0.3);
   }
   
   .neon-text-purple {
     color: var(--neon-purple);
-    text-shadow: 0 0 4px rgba(138, 43, 226, 0.6), 
-                 0 0 8px rgba(138, 43, 226, 0.3);
   }
+  
+  .neon-text-green {
+    color: var(--neon-green);
+  }
+  
+  .neon-text-orange {
+    color: var(--neon-orange);
+  }
+  
+  .synthwave-text {
+    background: linear-gradient(45deg, var(--synthwave-pink), var(--synthwave-blue));
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .font-bungee { font-family: 'Bungee', cursive; }
+  .font-teko { font-family: 'Teko', sans-serif; }
+  .font-exo { font-family: 'Exo 2', sans-serif; }
+  .font-audiowide { font-family: 'Audiowide', cursive; }
+  .font-orbitron { font-family: 'Orbitron', monospace; }
   
   .neon-border-cyan {
     border: 2px solid var(--neon-cyan);
@@ -114,16 +142,13 @@ code {
   
   .cyber-button:hover {
     background: linear-gradient(145deg, 
-                rgba(0, 255, 255, 0.05) 0%, 
+                rgba(0, 255, 255, 0.1) 0%, 
                 rgba(26, 26, 26, 0.8) 100%);
-    box-shadow: 0 0 12px rgba(0, 255, 255, 0.4), 
-                inset 0 0 12px rgba(0, 255, 255, 0.05);
     transform: translateY(-1px);
   }
   
   .cyber-button:active {
     transform: translateY(0px);
-    box-shadow: 0 0 6px rgba(0, 255, 255, 0.6);
   }
   
   .neon-progress {
@@ -217,6 +242,183 @@ code {
   /* Smooth focus styles */
   .cyber-button:focus {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(77, 208, 225, 0.3);
+    border-color: var(--neon-cyan);
+  }
+  
+  /* Cyber form elements */
+  .cyber-checkbox {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--neon-cyan);
+    background: transparent;
+    border-radius: 2px;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .cyber-checkbox:checked {
+    background: var(--neon-cyan);
+    box-shadow: 0 0 8px var(--neon-cyan);
+  }
+  
+  .cyber-checkbox:checked::after {
+    content: '✓';
+    position: absolute;
+    left: 1px;
+    top: -2px;
+    color: #000;
+    font-size: 12px;
+    font-weight: bold;
+  }
+  
+  .cyber-slider {
+    appearance: none;
+    height: 6px;
+    background: linear-gradient(90deg, var(--cyber-gray) 0%, var(--neon-cyan) 100%);
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .cyber-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--neon-cyan);
+    border-radius: 50%;
+    border: 2px solid #000;
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--neon-cyan);
+  }
+  
+  .cyber-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: var(--neon-cyan);
+    border-radius: 50%;
+    border: 2px solid #000;
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--neon-cyan);
+  }
+  
+  /* FLASHY CYBERPUNK ANIMATIONS */
+  .glitch-effect {
+    animation: glitch 0.5s infinite;
+  }
+  
+  @keyframes glitch {
+    0%, 100% { transform: translate(0); }
+    10% { transform: translate(-2px, 2px); }
+    20% { transform: translate(2px, -2px); }
+    30% { transform: translate(-2px, -2px); }
+    40% { transform: translate(2px, 2px); }
+    50% { transform: translate(-2px, 2px); }
+    60% { transform: translate(2px, -2px); }
+    70% { transform: translate(-2px, -2px); }
+    80% { transform: translate(2px, 2px); }
+    90% { transform: translate(-2px, 2px); }
+  }
+  
+  .neon-pulse {
+    animation: neonPulse 2s ease-in-out infinite alternate;
+  }
+  
+  @keyframes neonPulse {
+    from {
+      box-shadow: 0 0 10px var(--neon-cyan), 
+                  0 0 20px var(--neon-cyan), 
+                  0 0 40px var(--neon-cyan);
+    }
+    to {
+      box-shadow: 0 0 20px var(--neon-cyan), 
+                  0 0 40px var(--neon-cyan), 
+                  0 0 80px var(--neon-cyan), 
+                  0 0 120px var(--neon-cyan);
+    }
+  }
+  
+  .rgb-shift {
+    animation: rgbShift 3s ease-in-out infinite;
+  }
+  
+  @keyframes rgbShift {
+    0%, 100% { filter: hue-rotate(0deg); }
+    25% { filter: hue-rotate(90deg); }
+    50% { filter: hue-rotate(180deg); }
+    75% { filter: hue-rotate(270deg); }
+  }
+  
+  .synthwave-bg {
+    background: linear-gradient(45deg, 
+                var(--synthwave-pink) 0%, 
+                var(--neon-purple) 25%, 
+                var(--neon-blue) 50%, 
+                var(--synthwave-blue) 75%, 
+                var(--neon-cyan) 100%);
+    background-size: 400% 400%;
+    animation: gradientShift 8s ease infinite;
+  }
+  
+  @keyframes gradientShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+  
+  .tron-grid {
+    background-image: 
+      linear-gradient(rgba(0, 255, 255, 0.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 255, 255, 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  
+  /* Confetti animation */
+  .confetti {
+    animation: confetti 3s ease-out;
+  }
+  
+  @keyframes confetti {
+    0% {
+      transform: translateY(0) rotateZ(0deg);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(-100vh) rotateZ(360deg);
+      opacity: 0;
+    }
+  }
+  
+  /* Exhaust trail effect */
+  .exhaust-trail {
+    animation: exhaustFade 1s ease-out forwards;
+  }
+  
+  @keyframes exhaustFade {
+    0% { 
+      opacity: 0.8; 
+      transform: scale(1);
+    }
+    100% { 
+      opacity: 0; 
+      transform: scale(0.5);
+    }
+  }
+  
+  /* Thought bubble animation */
+  .thought-bubble {
+    animation: thoughtBubble 3s ease-in-out;
+  }
+  
+  @keyframes thoughtBubble {
+    0%, 100% { 
+      opacity: 0; 
+      transform: translateY(10px) scale(0.8); 
+    }
+    20%, 80% { 
+      opacity: 1; 
+      transform: translateY(0) scale(1); 
+    }
   }
 }

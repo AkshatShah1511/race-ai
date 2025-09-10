@@ -23,6 +23,12 @@ interface GameProps {
   onCollisionMessage?: (message: string) => void;
   selectedCarSkin?: string;
   soundEnabled?: boolean;
+  onAIMetrics?: (metrics: {
+    qValues: { min: number; max: number; mean: number } | null;
+    tdError: number;
+    replayBufferSize: number;
+    trainingStep: number;
+  }) => void;
 }
 
 interface Car {
@@ -46,10 +52,10 @@ const CANVAS_WIDTH = 1200; // Match Editor canvas size
 const CANVAS_HEIGHT = 900; // Match Editor canvas size
 const CELL_SIZE = 20;
 const CAR_SIZE = 12;
-const MAX_SPEED = 3;
-const ACCELERATION = 0.2;
-const DECELERATION = 0.1;
-const TURN_SPEED = 0.04; // Reduced turning radius for better control
+const MAX_SPEED = 5; // Increased from 3
+const ACCELERATION = 0.3; // Increased from 0.2
+const DECELERATION = 0.15; // Increased from 0.1
+const TURN_SPEED = 0.06; // Increased from 0.04 for better responsiveness
 
 // Cell types
 const WALL = 0;
@@ -67,7 +73,7 @@ const CAR_SKINS = {
   pink: { color: '#ff1493', glow: '#ff1493' }
 };
 
-const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrainingStats, onUpdateStats, showGhostTrail = false, onCollisionMessage, selectedCarSkin = 'cyan', soundEnabled = true }) => {
+const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrainingStats, onUpdateStats, showGhostTrail = false, onCollisionMessage, selectedCarSkin = 'cyan', soundEnabled = true, onAIMetrics }) => {
   const { isDark } = useTheme();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>(0);
@@ -110,6 +116,8 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
   const [successfulRuns, setSuccessfulRuns] = useState(0);
   const [trainingElapsed, setTrainingElapsed] = useState(0);
   const [engineStarted, setEngineStarted] = useState(false);
+  
+  // AI Inspector metrics (removed unused local state since we pass directly to parent)
   // Collision message is now handled through parent component
   const [bestRunPath, setBestRunPath] = useState<{x: number, y: number}[]>([]);
   const [currentRunPath, setCurrentRunPath] = useState<{x: number, y: number}[]>([]);
@@ -583,13 +591,33 @@ const Game: React.FC<GameProps> = ({ mapData, mode, isTraining, fastMode, onTrai
           }
         }
         
+        // Update AI Inspector metrics every 30 steps (throttled for performance)
+        if (episodeStepsRef.current % 30 === 0) {
+          try {
+            const qValues = agentRef.current.getQValues(currentState);
+            const tdError = agentRef.current.getLastTDError();
+            const bufferSize = agentRef.current.getReplayBufferSize();
+            const step = agentRef.current.getTrainingStep();
+            
+            // Send metrics to parent for AI Inspector
+            onAIMetrics?.({
+              qValues,
+              tdError,
+              replayBufferSize: bufferSize,
+              trainingStep: step
+            });
+          } catch (error) {
+            console.warn('Error updating AI metrics:', error);
+          }
+        }
+        
         prevStateRef.current = currentState;
         episodeStepsRef.current++;
       }
       
       return newState;
     });
-  }, [keys, gameState, checkCollision, checkFinish, mode, isTraining, currentAction, getGameState, applyAction, handleSmoothCollision, currentRunPath, bestRunReward, onTrainingStats, showGhostTrail]);
+  }, [keys, gameState, checkCollision, checkFinish, mode, isTraining, currentAction, getGameState, applyAction, handleSmoothCollision, currentRunPath, bestRunReward, onTrainingStats, showGhostTrail, onAIMetrics]);
 
   const drawGame = useCallback((ctx: CanvasRenderingContext2D) => {
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
